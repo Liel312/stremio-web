@@ -1,17 +1,21 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCore } from 'stremio/core';
-import { CONSTANTS, languageNames, useLanguageSorting, usePlatform } from 'stremio/common';
-import useMpvConfig from './useMpvConfig';
+import { CONSTANTS, languages, languageNames, useLanguageSorting, usePlatform, useSettings } from 'stremio/common';
 
 const LANGUAGES_NAMES: Record<string, string> = languageNames;
 const SUBTITLES_OFFSETS = Array.from({ length: 21 }, (_, i) => i * 5);
+
+const getLanguageOptionValue = (language: string | null) => {
+    const code = languages.toCode(language ?? '');
+    return Object.keys(LANGUAGES_NAMES).find((value) => languages.toCode(value) === code) ?? language;
+};
 
 const usePlayerOptions = (profile: Profile) => {
     const { t } = useTranslation();
     const core = useCore();
     const platform = usePlatform();
-    const mpvConfigSelect = useMpvConfig();
+    const [, updateSettings] = useSettings();
 
     const languageOptions = useMemo(() => Object.keys(LANGUAGES_NAMES).map((code) => ({
         value: code,
@@ -25,7 +29,7 @@ const usePlayerOptions = (profile: Profile) => {
             { value: null, label: t('NONE') },
             ...sortedLanguageOptions
         ],
-        value: profile.settings.subtitlesLanguage,
+        value: getLanguageOptionValue(profile.settings.subtitlesLanguage),
         onSelect: (value: string) => {
             core.transport.dispatch({
                 action: 'Ctx',
@@ -167,22 +171,6 @@ const usePlayerOptions = (profile: Profile) => {
         }
     }), [profile.settings, sortedLanguageOptions]);
 
-    const surroundSoundToggle = useMemo(() => ({
-        checked: profile.settings.surroundSound,
-        onClick: () => {
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'UpdateSettings',
-                    args: {
-                        ...profile.settings,
-                        surroundSound: !profile.settings.surroundSound
-                    }
-                }
-            });
-        }
-    }), [profile.settings]);
-
     const seekTimeDurationSelect = useMemo(() => ({
         options: CONSTANTS.SEEK_TIME_DURATIONS.map((size) => ({
             value: `${size}`,
@@ -297,103 +285,16 @@ const usePlayerOptions = (profile: Profile) => {
         }
     }), [profile.settings]);
 
-    const playInBackgroundToggle = useMemo(() => ({
-        checked: profile.settings.playInBackground,
-        onClick: () => {
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'UpdateSettings',
-                    args: {
-                        ...profile.settings,
-                        playInBackground: !profile.settings.playInBackground
-                    }
-                }
-            });
-        }
-    }), [profile.settings]);
-
-    const hardwareDecodingToggle = useMemo(() => ({
-        checked: profile.settings.hardwareDecoding,
-        onClick: () => {
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'UpdateSettings',
-                    args: {
-                        ...profile.settings,
-                        hardwareDecoding: !profile.settings.hardwareDecoding
-                    }
-                }
-            });
-        }
-    }), [profile.settings]);
-
-    const gpuVideoProcessingToggle = useMemo(() => ({
-        checked: profile.settings.gpuVideoProcessing,
-        onClick: () => {
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'UpdateSettings',
-                    args: {
-                        ...profile.settings,
-                        gpuVideoProcessing: !profile.settings.gpuVideoProcessing
-                    }
-                }
-            });
-        }
-    }), [profile.settings]);
-
-    const videoModeSelect = useMemo(() => ({
-        options: [
-            {
-                value: null,
-                label: t('SETTINGS_VIDEO_MODE_DEFAULT'),
-            },
-            {
-                value: 'legacy',
-                label: t('SETTINGS_VIDEO_MODE_LEGACY'),
-            }
-        ],
-        value: profile.settings.videoMode,
-        title: () => {
-            return profile.settings.videoMode === 'legacy' ?
-                t('SETTINGS_VIDEO_MODE_LEGACY')
-                :
-                t('SETTINGS_VIDEO_MODE_DEFAULT');
-        },
-        onSelect: (value: string | null) => {
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'UpdateSettings',
-                    args: {
-                        ...profile.settings,
-                        videoMode: value,
-                    }
-                }
-            });
-        }
-    }), [profile.settings]);
-
-    const pauseOnMinimizeToggle = useMemo(() => ({
-        checked: profile.settings.pauseOnMinimize,
-        onClick: () => {
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'UpdateSettings',
-                    args: {
-                        ...profile.settings,
-                        pauseOnMinimize: !profile.settings.pauseOnMinimize,
-                    }
-                }
-            });
-        }
-    }), [profile.settings]);
-
     return {
+        subtitlesLanguageFilterToggle: {
+            checked: profile.settings.subtitlesLanguageFilterEnabled,
+            onClick: () => updateSettings({ subtitlesLanguageFilterEnabled: !profile.settings.subtitlesLanguageFilterEnabled }),
+        },
+        secondarySubtitlesLanguageSelect: {
+            options: [{ value: null, label: t('NONE') }, ...sortedLanguageOptions],
+            value: getLanguageOptionValue(profile.settings.secondarySubtitlesLanguage),
+            onSelect: (value: string | null) => updateSettings({ secondarySubtitlesLanguage: value }),
+        },
         subtitlesLanguageSelect,
         subtitlesSizeSelect,
         subtitlesOffsetSelect,
@@ -402,18 +303,16 @@ const usePlayerOptions = (profile: Profile) => {
         subtitlesOutlineColorInput,
         assSubtitlesStylingToggle,
         audioLanguageSelect,
-        surroundSoundToggle,
+        secondaryAudioLanguageSelect: {
+            options: [{ value: null, label: t('NONE') }, ...sortedLanguageOptions],
+            value: getLanguageOptionValue(profile.settings.secondaryAudioLanguage),
+            onSelect: (value: string | null) => updateSettings({ secondaryAudioLanguage: value }),
+        },
         seekTimeDurationSelect,
         seekShortTimeDurationSelect,
         playInExternalPlayerSelect,
         nextVideoPopupDurationSelect,
         bingeWatchingToggle,
-        playInBackgroundToggle,
-        hardwareDecodingToggle,
-        gpuVideoProcessingToggle,
-        videoModeSelect,
-        pauseOnMinimizeToggle,
-        mpvConfigSelect,
     };
 };
 
